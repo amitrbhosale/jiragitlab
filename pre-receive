@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# check commit messages for JIRA issue numbers formatted as [JIRA-<issue number>]
+# Here SAM is the Jira Project short code.
+
+REGEX='(sam-[0-9]+)'
+ERROR_MSG="[POLICY] The commit doesn't reference a JIRA issue. e.g. SAM-1234"
+FLAG="1"
+
+while read OLDREV NEWREV REFNAME ; do
+  for COMMIT in `git rev-list $OLDREV..$NEWREV`;
+  do
+    MESSAGE=`git cat-file commit $COMMIT | sed '1,/^$/d'`
+    JIRA=`git cat-file commit $COMMIT | sed '1,/^$/d' | grep -ioh 'sam-[0-9]*'`
+    #Check if commit contains Jira ID
+    if ! echo $MESSAGE | grep -iqE "$REGEX"; then
+      echo "$ERROR_MSG: $MESSAGE" >&2
+      exit 1
+    fi
+
+    for line in $JIRA ; do
+        echo $line
+        curl --user <username>:<password> https://<jira-url-context>/rest/api/latest/issue/$line > out.txt
+        if cat out.txt | grep -iqE "Issue Does Not Exist in JIRA"; then
+          echo "Issue does not exist in Jira" >&2
+          FLAG="0"
+          echo $FLAG
+          exit 1
+        fi
+   done
+
+  done
+done
+exit 0
